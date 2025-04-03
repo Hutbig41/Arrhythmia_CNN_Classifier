@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrhythmia Detection</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            border: 2px solid #007bff;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        .file-input {
+            margin-bottom: 25px;
+        }
+        .file-input label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #555;
+            font-size: 16px;
+        }
+        .file-input input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        .file-input input:focus {
+            border-color: #007bff;
+        }
+        button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #result {
+            margin-top: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .success {
+            color: #28a745;
+        }
+        .probability-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .probability-list li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Arrhythmia Detection</h1>
+        <form id="uploadForm">
+            <div class="file-input">
+                <label for="hea_file">Upload .hea File:</label>
+                <input type="file" id="hea_file" name="hea_file" accept=".hea" required>
+            </div>
+            <div class="file-input">
+                <label for="dat_file">Upload .dat File or .mat File:</label>
+                <input type="file" id="dat_file" name="dat_file" accept=".dat, .mat" required>
+            </div>
+            <button type="submit">Predict</button>
+        </form>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const formData = new FormData();
+            formData.append("hea_file", document.getElementById("hea_file").files[0]);
+            formData.append("dat_file", document.getElementById("dat_file").files[0]);
+
+            // Show loading message
+            const resultDiv = document.getElementById("result");
+            resultDiv.innerHTML = "Processing... Please wait.";
+
+            fetch("/predict", {
+                method: "POST",
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    resultDiv.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+                } else if (data.arrhythmias && typeof data.arrhythmias === 'object') {
+                    // Map the arrhythmia codes to their descriptions
+                    const arrhythmiaMap = {
+                        'N': 'Normal beat',
+                        'A': 'Atrial premature beat',
+                        'V': 'Premature ventricular contraction (PVC)',
+                        'J': 'Junctional escape beat',
+                        'F': 'Fusion of ventricular and normal beat',
+                        'S': 'Supraventricular premature beat',
+                        'E': 'Ventricular escape beat',
+                        'R': 'Right bundle branch block beat',
+                        'L': 'Left bundle branch block beat',
+                        'Q': 'Unclassifiable beat',
+                        '+': 'Rhythm change annotation',
+                        '|': 'Isolated QRS-like artifact',
+                        'x': 'Waveform change',
+                        'j': 'Nodal (junctional) premature beat',
+                        '~': 'Signal quality change (artifact/noise)',
+                        'a': 'Aberrated atrial premature beat',
+                        '[': 'Measurement marker',
+                        ']': 'Measurement marker',
+                        '/': 'Pacemaker activity',
+                        '"': 'Comment annotation',
+                        'f': 'Fusion of paced and normal beat',
+                        '!': 'Ventricular flutter wave',
+                        'e': 'Atrial escape beat'
+                    };
+
+                    // Display all detected arrhythmias and their probabilities
+                    let resultHTML = "<h3>Arrhythmia Predictions:</h3><ul class='probability-list'>";
+                    for (const [type, probability] of Object.entries(data.arrhythmias)) {
+                        const description = arrhythmiaMap[type] || 'Unknown';
+                        resultHTML += `<li>${description}: ${probability}%</li>`;
+                    }
+                    resultHTML += "</ul>";
+                    resultDiv.innerHTML = resultHTML;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">No valid arrhythmia data received.</span>`;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            });
+        });
+    </script>
+</body>
+</html>
